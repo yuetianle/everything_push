@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import TrendChart from '../components/TrendChart.vue'
 import ManualEntryDialog from '../components/ManualEntryDialog.vue'
 
@@ -14,12 +14,15 @@ const field = ref<'mid' | 'fx_bid' | 'fx_ask'>('mid')
 const dialogVisible = ref(false)
 const refreshKey = ref(0)
 
-const fromTo = computed(() => {
+// 普通函数而非 computed：Date.now() 非响应式，computed 会把 to 冻结在首次计算时刻；
+// 每次（重）渲染调用即取新时间窗，配合 :key 重挂载使 60s 自动刷新拉到最新窗口
+function fromTo() {
   const hours = { '24h': 24, '7d': 168, '30d': 720, '1y': 8760 }[range.value]
   return { from: new Date(Date.now() - hours * 3600_000).toISOString(), to: new Date().toISOString() }
-})
+}
 
-const timer = window.setInterval(() => (refreshKey.value++), 60_000)
+let timer: number
+onMounted(() => { timer = window.setInterval(() => (refreshKey.value++), 60_000) })
 onUnmounted(() => clearInterval(timer))
 </script>
 
@@ -46,7 +49,7 @@ onUnmounted(() => clearInterval(timer))
       <el-button type="primary" plain @click="dialogVisible = true">人工录入</el-button>
     </div>
     <TrendChart v-if="picked.length" :key="`${pair}-${refreshKey}`" :pair="pair" :sources="picked"
-      :from="fromTo.from" :to="fromTo.to" :field="field" height="480px" />
+      :from="fromTo().from" :to="fromTo().to" :field="field" height="480px" />
     <el-empty v-else description="请至少选择一个数据源" />
     <ManualEntryDialog v-model:visible="dialogVisible" :pairs="pairs" @saved="refreshKey++" />
   </div>
