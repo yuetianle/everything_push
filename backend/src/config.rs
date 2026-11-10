@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
     pub database_url: String,
-    pub admin_password_hash: String,
+    pub admin_password: String,
     pub wecom_webhook_url: Option<String>,
     pub telegram_bot_token: Option<String>,
     pub telegram_chat_id: Option<String>,
