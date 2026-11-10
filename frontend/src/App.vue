@@ -21,3 +21,7 @@ const menu = [
   </el-container>
   <router-view v-else />
 </template>
+
+<style>
+body { margin: 0; }
+</style>
