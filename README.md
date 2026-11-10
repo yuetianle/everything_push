@@ -12,7 +12,7 @@ Rust(axum) + Vue3 + PostgreSQL。多源汇率采集（frankfurter API / 中行 /
 
 ## 生成管理员密码哈希
     cd backend && cargo run --bin pwd_hash -- "你的密码"
-    # 输出填入 ADMIN_PASSWORD（或 fintrack.toml 的 admin_password_hash）
+    # 输出填入 ADMIN_PASSWORD（或 fintrack.toml 的 admin_password）
 
 ## 部署（Linux 内网设备）
     cp deploy/.env.example deploy/.env   # 填齐变量

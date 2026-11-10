@@ -6,7 +6,9 @@ use chrono::{DateTime, Duration, Utc};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use crate::alerts::engine;
 use crate::error::{ApiResult, AppError};
+use crate::notify;
 use crate::AppState;
 use super::{store, RatePoint};
 
@@ -36,6 +38,16 @@ async fn manual_entry(State(st): State<AppState>, Json(b): Json<ManualBody>) -> 
         note: b.note,
     };
     store::insert_many(&st.pool, std::slice::from_ref(&pt)).await?;
+    // SPEC §3.2：人工数据仅对显式选择 manual 源的规则评估。
+    // evaluate_all 按 source='manual' + pair 过滤，其他源的规则不受影响。
+    match engine::evaluate_all(&st.pool, &pt, Utc::now()).await {
+        Ok(triggered) => {
+            for t in triggered {
+                notify::dispatch(&st.pool, &st.notifiers, "汇率告警", &t.message()).await;
+            }
+        }
+        Err(e) => tracing::error!("告警评估失败: {e}"),
+    }
     Ok(Json(serde_json::json!({"ok": true})))
 }
 

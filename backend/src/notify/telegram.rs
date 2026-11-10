@@ -11,7 +11,11 @@ pub struct TelegramNotifier {
 pub fn build_client(proxy: Option<&str>) -> reqwest::Client {
     let mut b = reqwest::Client::builder();
     if let Some(p) = proxy {
-        b = b.proxy(reqwest::Proxy::all(p).expect("非法代理地址"));
+        match reqwest::Proxy::all(p) {
+            Ok(px) => b = b.proxy(px),
+            // 代理配置非法不应导致进程 panic（restart: unless-stopped 下会崩溃循环），降级为直连
+            Err(e) => tracing::error!("TELEGRAM_PROXY 配置非法({p:?})，忽略代理继续: {e}"),
+        }
     }
     b.build().expect("reqwest client 构建失败")
 }
