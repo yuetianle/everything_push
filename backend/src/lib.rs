@@ -3,6 +3,7 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod rates;
+pub mod sources;
 
 use std::sync::Arc;
 
