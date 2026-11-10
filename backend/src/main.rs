@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/auth/logout", post(auth::logout_handler))
         .route("/api/auth/me", get(auth::me_handler))
         .merge(fintrack::rates::api::routes())
-        .merge(fintrack::alerts::api::routes());
+        .merge(fintrack::alerts::api::routes())
+        .merge(fintrack::notify::api::routes());
 
     let app = public
         .merge(protected.route_layer(axum::middleware::from_fn_with_state(auth_state, auth::auth_mw)))
