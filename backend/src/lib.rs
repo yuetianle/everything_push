@@ -2,6 +2,7 @@ pub mod alerts;
 pub mod auth;
 pub mod config;
 pub mod db;
+pub mod deposits;
 pub mod error;
 pub mod notify;
 pub mod rates;

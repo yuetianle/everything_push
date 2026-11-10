@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/auth/me", get(auth::me_handler))
         .merge(fintrack::rates::api::routes())
         .merge(fintrack::alerts::api::routes())
+        .merge(fintrack::deposits::api::routes())
         .merge(fintrack::notify::api::routes());
 
     let app = public
