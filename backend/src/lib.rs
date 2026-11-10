@@ -4,6 +4,7 @@ pub mod config;
 pub mod db;
 pub mod deposits;
 pub mod error;
+pub mod maturity;
 pub mod notify;
 pub mod rates;
 pub mod sources;
