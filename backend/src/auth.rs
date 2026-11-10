@@ -72,11 +72,11 @@ pub async fn auth_mw(State(st): State<AuthState>, req: Request, next: Next) -> R
 }
 
 #[derive(Deserialize)]
-struct LoginBody {
-    password: String,
+pub struct LoginBody {
+    pub password: String,
 }
 
-async fn login(State(st): State<AuthState>, Json(body): Json<LoginBody>) -> ApiResult<Response> {
+pub async fn login_handler(State(st): State<AuthState>, Json(body): Json<LoginBody>) -> ApiResult<Response> {
     if !verify_password(&st.password_hash, &body.password) {
         return Err(AppError(StatusCode::UNAUTHORIZED, "密码错误".into()));
     }
@@ -94,7 +94,7 @@ async fn login(State(st): State<AuthState>, Json(body): Json<LoginBody>) -> ApiR
     Ok(resp)
 }
 
-async fn logout() -> Response {
+pub async fn logout_handler() -> Response {
     let mut resp = (StatusCode::OK, axum::Json(serde_json::json!({"ok": true}))).into_response();
     resp.headers_mut().insert(
         header::SET_COOKIE,
@@ -103,13 +103,13 @@ async fn logout() -> Response {
     resp
 }
 
-async fn me() -> axum::Json<serde_json::Value> {
+pub async fn me_handler() -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({"ok": true}))
 }
 
 pub fn auth_routes() -> Router<AuthState> {
     Router::new()
-        .route("/api/auth/login", post(login))
-        .route("/api/auth/logout", post(logout))
-        .route("/api/auth/me", get(me))
+        .route("/api/auth/login", post(login_handler))
+        .route("/api/auth/logout", post(logout_handler))
+        .route("/api/auth/me", get(me_handler))
 }
