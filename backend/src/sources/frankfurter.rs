@@ -73,12 +73,40 @@ pub async fn fetch_range(client: &reqwest::Client, base: &str, from: NaiveDate, 
     fetch_range_at(client, BASE_URL, base, from, to).await
 }
 
+/// exchange_rates 按月 RANGE 分区且无默认分区：回填窗口（首次 365 天，约 14 个月）
+/// 内分区缺失会使首批插入直接失败。取所有 pair 的最早增量起点（空表 pair 为
+/// today-365，存量 pair 为其 max(recorded_at)+1，二者取更早），把 [起点所在月 ..
+/// 当月] 的分区幂等补齐。
+async fn ensure_backfill_partitions(pool: &PgPool, pairs: &[String], today: NaiveDate) -> Result<(), String> {
+    let min_max: Option<chrono::DateTime<Utc>> = sqlx::query_scalar(
+        "SELECT min(m) FROM (SELECT max(recorded_at) AS m FROM exchange_rates \
+         WHERE source='api' AND pair = ANY($1) GROUP BY pair) t")
+        .bind(pairs).fetch_one(pool).await.map_err(|e| e.to_string())?;
+    let floor = today - chrono::Duration::days(365);
+    let from = match min_max {
+        Some(m) => (m.date_naive() + chrono::Duration::days(1)).min(floor),
+        None => floor,
+    };
+    use chrono::{Datelike, Months};
+    let mut cur = from.with_day(1).unwrap();
+    let this_month = today.with_day(1).unwrap();
+    while cur <= this_month {
+        let next = cur.checked_add_months(Months::new(1)).unwrap();
+        crate::db::ensure_partition_for(pool, cur.year(), cur.month()).await.map_err(|e| e.to_string())?;
+        cur = next;
+    }
+    Ok(())
+}
+
 /// 幂等入库：每对货币从已存最大日期的次日开始增量拉取；首次回填 365 天。返回新增行数。
 pub async fn ingest_api_rates(pool: &PgPool, client: &reqwest::Client, pairs: &[String]) -> Result<usize, String> {
     let today = Utc::now().date_naive();
+    ensure_backfill_partitions(pool, pairs, today).await?;
     let mut total = 0usize;
     for pair in pairs {
-        let base = pair.split('/').next().unwrap();
+        let Some(base) = pair.split_once('/').map(|(b, _)| b) else {
+            return Err(format!("非法 pair: {pair}（应为 BASE/CNY）"));
+        };
         let max: Option<chrono::DateTime<Utc>> = sqlx::query_scalar(
             "SELECT max(recorded_at) FROM exchange_rates WHERE source='api' AND pair=$1")
             .bind(pair).fetch_optional(pool).await.map_err(|e| e.to_string())?

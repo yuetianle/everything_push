@@ -38,6 +38,10 @@ async fn parses_range() {
 /// 集成测试：真实 frankfurter.dev + 真实 PG（TEST_DATABASE_URL）。
 /// R6：若本机网络不可达（超时/DNS 失败），允许跳过，但必须在任务报告中
 /// 原文引用报错输出 —— 不得静默删除本测试。
+///
+/// 回归覆盖分区修复：不再由测试预建分区（旧写法掩盖了生产路径缺陷），
+/// 而是先 DROP 回填窗口内的月度分区（连同数据），ingest_api_rates
+/// 必须自行补建分区，否则首批插入即 "no partition of relation" 失败。
 #[tokio::test]
 #[ignore]
 async fn ingest_is_idempotent() {
@@ -45,11 +49,12 @@ async fn ingest_is_idempotent() {
     let url = std::env::var("TEST_DATABASE_URL").unwrap();
     let pool = fintrack::db::connect(&url).await.unwrap();
     sqlx::migrate!().run(&pool).await.unwrap();
-    // exchange_rates 按月分区且无默认分区，365 天回填窗口内的月度分区需先建好
     let today = chrono::Utc::now().date_naive();
-    let mut cur = today.with_day(1).unwrap().checked_sub_months(Months::new(13)).unwrap();
-    while cur <= today.with_day(1).unwrap() {
-        fintrack::db::ensure_partition_for(&pool, cur.year(), cur.month()).await.unwrap();
+    let this_month = today.with_day(1).unwrap();
+    let mut cur = this_month.checked_sub_months(Months::new(13)).unwrap();
+    while cur <= this_month {
+        let name = format!("exchange_rates_{}{:02}", cur.year(), cur.month());
+        sqlx::query(&format!("DROP TABLE IF EXISTS {name}")).execute(&pool).await.unwrap();
         cur = cur.checked_add_months(Months::new(1)).unwrap();
     }
     sqlx::query("DELETE FROM exchange_rates WHERE source='api'").execute(&pool).await.unwrap();
