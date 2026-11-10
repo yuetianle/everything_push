@@ -8,3 +8,4 @@ backend/fintrack.toml
 frontend/dist/
 .tools/
 data-dev/
+*.stackdump

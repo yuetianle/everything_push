@@ -53,6 +53,28 @@ pub mod store {
         Ok(n)
     }
 
+    /// 指定 source + pair 的最新一条（调度器对基准价做规则评估用）
+    pub async fn latest_one(pool: &PgPool, source: &str, pair: &str) -> Result<Option<RatePoint>, sqlx::Error> {
+        // 注：brief 草稿的局部结构体名 `R` 与 sqlx FromRow derive 展开的内部标识冲突
+        // （E0210/E0574），换名即可。
+        #[derive(sqlx::FromRow)]
+        struct LatestRow {
+            source: String, pair: String,
+            fx_bid: Option<Decimal>, fx_ask: Option<Decimal>, mid: Option<Decimal>,
+            recorded_at: chrono::DateTime<chrono::Utc>, note: Option<String>,
+        }
+        let r = sqlx::query_as::<_, LatestRow>(
+            "SELECT source, pair, fx_bid, fx_ask, mid, recorded_at, note
+             FROM exchange_rates WHERE source=$1 AND pair=$2
+             ORDER BY recorded_at DESC LIMIT 1")
+            .bind(source).bind(pair)
+            .fetch_optional(pool).await?;
+        Ok(r.map(|r| RatePoint {
+            source: r.source, pair: r.pair, fx_bid: r.fx_bid, fx_ask: r.fx_ask,
+            mid: r.mid, recorded_at: r.recorded_at, note: r.note,
+        }))
+    }
+
     pub async fn latest(pool: &PgPool) -> Result<Vec<LatestRate>, sqlx::Error> {
         sqlx::query_as(
             "SELECT DISTINCT ON (pair, source) pair, source, fx_bid, fx_ask, mid, recorded_at

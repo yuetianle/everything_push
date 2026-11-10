@@ -7,6 +7,7 @@ pub mod error;
 pub mod maturity;
 pub mod notify;
 pub mod rates;
+pub mod scheduler;
 pub mod sources;
 
 use std::sync::Arc;
@@ -18,6 +19,8 @@ pub struct AppState {
     pub pool: sqlx::PgPool,
     pub cfg: Arc<AppConfig>,
     pub auth: crate::auth::AuthState,
+    pub health: Arc<crate::sources::health::HealthRegistry>,
+    pub notifiers: Arc<Vec<Arc<dyn notify::Notifier>>>,
 }
 
 // axum 未启用 macros feature（无 FromRef derive），手工实现以支持
