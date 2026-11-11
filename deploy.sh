@@ -27,6 +27,17 @@ dc() {
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" "$@"
 }
 
+# 非 TTY 环境（一次性 ssh / CI / 脚本内调用）下 compose 的进度 UI 会报
+# "failed to get console: provided file is not a console"：
+# build 显式用 plain 进度（老版本 compose 无此选项则回退），run 一律加 -T。
+compose_build() {
+    if dc build --help 2>/dev/null | grep -q -- '--progress'; then
+        dc build --progress plain "$@"
+    else
+        dc build "$@"
+    fi
+}
+
 require_docker() {
     command -v docker >/dev/null 2>&1 || die "未找到 docker —— 请先安装 Docker Engine 与 compose 插件"
     docker info >/dev/null 2>&1 || die "Docker 守护进程未运行"
@@ -56,9 +67,9 @@ cmd_hash() {
     require_docker
     [ -f "$ENV_FILE" ] || die "先运行: ./deploy.sh init"
     info "构建 backend 镜像（首次较慢）..."
-    dc build backend >/dev/null
+    compose_build backend
     info "哈希如下，整行填入 $ENV_FILE 的 ADMIN_PASSWORD= 之后（不要加引号）:"
-    printf '\nADMIN_PASSWORD=%s\n\n' "$(dc run --rm --no-deps --entrypoint pwd_hash backend "$1")"
+    printf '\nADMIN_PASSWORD=%s\n\n' "$(dc run --rm -T --no-deps --entrypoint pwd_hash backend "$1")"
 }
 
 wait_ready() {
@@ -84,14 +95,15 @@ wait_ready() {
 cmd_up() {
     require_docker; require_env
     dc config -q || die "compose 配置校验失败，检查 $ENV_FILE"
-    dc up -d --build
+    compose_build
+    dc up -d
     wait_ready
     dc ps
 }
 
 cmd_down()    { require_docker; require_env; dc down; }
 cmd_restart() { require_docker; require_env; dc restart; wait_ready; }
-cmd_build()   { require_docker; require_env; dc build; }
+cmd_build()   { require_docker; require_env; compose_build; }
 
 cmd_logs() {
     require_docker
