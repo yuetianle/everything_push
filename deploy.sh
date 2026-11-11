@@ -92,11 +92,26 @@ wait_ready() {
     info "服务就绪: http://$(hostname 2>/dev/null || echo localhost)/  （建议 Tailscale 内网访问，不暴露公网）"
 }
 
+# .env 里配置了 DOCKERHUB_USERNAME 时启用拉取模式（镜像由 GitHub Actions 推到 Docker Hub）
+use_hub() { grep -Eq '^DOCKERHUB_USERNAME=..+' "$ENV_FILE" 2>/dev/null; }
+
 cmd_up() {
     require_docker; require_env
     dc config -q || die "compose 配置校验失败，检查 $ENV_FILE"
-    compose_build
-    dc up -d
+    if use_hub; then
+        info "检测到 DOCKERHUB_USERNAME —— 拉取 CI 镜像（本机不编译）..."
+        if dc pull backend frontend; then
+            dc up -d --no-build
+        else
+            warn "镜像拉取失败（CI 尚未构建 / 私有仓库未登录 / 网络）—— 回退本机构建"
+            info "私有镜像需先在主机执行: docker login"
+            compose_build
+            dc up -d
+        fi
+    else
+        compose_build
+        dc up -d
+    fi
     wait_ready
     dc ps
 }

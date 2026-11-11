@@ -29,6 +29,20 @@ Rust(axum) + Vue3 + PostgreSQL。多源汇率采集（frankfurter API / 中行 /
     docker compose -f deploy/docker-compose.prod.yml up -d --build
     # 访问 http://<主机>/ （建议 Tailscale 组网，不暴露公网）
 
+## CI 构建（GitHub Actions → Docker Hub）
+
+push 到 main 自动构建并推送两个镜像到 Docker Hub（单仓库双标签：`<用户名>/fintrack:backend-latest` 与 `frontend-latest`，另存 `<sha>` 标签供回滚）。
+
+一次性配置：
+
+1. Docker Hub → Account Settings → Security → **New Access Token**（Read & Write），复制令牌
+2. GitHub 仓库 → Settings → Secrets and variables → Actions → 添加：
+   - `DOCKERHUB_USERNAME` = 你的 Docker Hub 用户名
+   - `DOCKERHUB_TOKEN` = 上一步的令牌
+3. push 到 main，Actions 里 `docker` 工作流自动构建（Rust 镜像首次约 10 分钟，有 GHA 缓存后显著变快）
+
+部署机使用 CI 镜像：在 `deploy/.env` 填 `DOCKERHUB_USERNAME=<用户名>`，之后 `./deploy.sh up` 直接拉取不再本机编译（私有镜像需先在部署机 `docker login` 一次）。回滚：把 `IMAGE_TAG` 改为某次提交的 sha（镜像标签形如 `backend-<sha>` / `frontend-<sha>`）再 `up`。
+
 ## 通知渠道配置
 - 企业微信：注册企业微信 → 建群 → 群机器人 → webhook 填 WECOM_WEBHOOK_URL
 - Telegram：@BotFather 建 bot；chat_id 可通过与 bot 对话后 getUpdates 获取；

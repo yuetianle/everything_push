@@ -10,6 +10,8 @@ services:
     restart: unless-stopped
 
   backend:
+    # 有 CI 镜像（Docker Hub）时优先拉取；DOCKERHUB_USERNAME 留空则走本地 build 并打同名标签
+    image: ${DOCKERHUB_USERNAME:-local}/fintrack:backend-${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.backend
@@ -26,6 +28,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ${DOCKERHUB_USERNAME:-local}/fintrack:frontend-${IMAGE_TAG:-latest}
     build:
       context: ..
       dockerfile: deploy/Dockerfile.frontend
