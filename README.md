@@ -14,7 +14,17 @@ Rust(axum) + Vue3 + PostgreSQL。多源汇率采集（frankfurter API / 中行 /
     cd backend && cargo run --bin pwd_hash -- "你的密码"
     # 输出填入 ADMIN_PASSWORD（或 fintrack.toml 的 admin_password）
 
-## 部署（Linux 内网设备）
+## 部署（Linux 内网设备）— 一键脚本
+
+    ./deploy.sh init            # 创建 deploy/.env
+    ./deploy.sh hash <你的密码>  # 容器内生成 argon2 哈希，输出整行填入 deploy/.env 的 ADMIN_PASSWORD
+    ./deploy.sh up              # 构建并启动（db/backend/frontend/backup），自动探活等待就绪
+
+其他命令：`down`（停止）/ `restart` / `build` / `logs [服务]` / `status` / `update`（git pull 后重建）/ `backup`（手动 pg_dump 到 data/backups/）。
+运行 `./deploy.sh help` 查看全部用法。
+
+等价手动方式（不走脚本时）：
+
     cp deploy/.env.example deploy/.env   # 填齐变量
     docker compose -f deploy/docker-compose.prod.yml up -d --build
     # 访问 http://<主机>/ （建议 Tailscale 组网，不暴露公网）

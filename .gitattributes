@@ -1,0 +1,2 @@
+# 部署到 Linux 的脚本必须保持 LF 行尾
+*.sh text eol=lf
